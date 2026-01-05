@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CoopAdmin Pro - Sistema de Préstamos</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .sidebar-item:hover { background-color: rgba(255, 255, 255, 0.1); }
+    .active-nav { background-color: rgba(255, 255, 255, 0.2); border-left: 4px solid #fbbf24; color: white !important; }
+    .hidden { display: none !important; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+  </style>
+</head>
+
+<body class="bg-gray-100">
+
+  <!-- Pantalla de Carga Inicial -->
+  <div id="loading-overlay" class="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center">
+    <div class="text-white text-center">
+      <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mb-4"></div>
+      <p class="text-sm font-medium">Sincronizando con la nube...</p>
+    </div>
+  </div>
+
+  <!-- Login Screen -->
+  <div id="login-screen" class="min-h-screen flex items-center justify-center p-4 bg-slate-900 hidden">
+    <div class="max-w-md w-full bg-white rounded-2xl shadow-2xl overflow-hidden">
+      <div class="p-8">
+        <div class="text-center mb-8">
+          <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 text-blue-600 rounded-full mb-4">
+            <i class="fas fa-shield-halved fa-2x"></i>
+          </div>
+          <h2 class="text-2xl font-bold text-gray-800">CoopAdmin Pro</h2>
+          <p class="text-gray-500">Inicia sesión con tu cuenta de Firebase</p>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-600 mb-1">Correo Electrónico</label>
+            <input type="email" id="login-email" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="admin@cooperativa.com">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-600 mb-1">Contraseña</label>
+            <input type="password" id="login-password" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="••••••••">
+          </div>
+          <button id="btn-login" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition">Entrar al Sistema</button>
+
+          <div class="relative py-4">
+            <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200"></div></div>
+            <div class="relative flex justify-center text-xs uppercase"><span class="bg-white px-2 text-gray-400">Opciones</span></div>
+          </div>
+
+          <button id="btn-register-ui" class="w-full border border-gray-300 text-gray-600 py-3 rounded-lg font-semibold hover:bg-gray-50 transition text-sm">Crear cuenta de Administrador</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App Content -->
+  <div id="app-content" class="flex h-screen overflow-hidden hidden">
+    <aside class="w-64 bg-slate-800 text-white flex-shrink-0 flex flex-col">
+      <div class="p-6">
+        <h1 class="text-2xl font-bold flex items-center gap-2">
+          <i class="fas fa-hand-holding-dollar text-yellow-400"></i>
+          <span>CoopAdmin</span>
+        </h1>
+      </div>
+
+      <nav class="flex-1 px-4 space-y-2 mt-4">
+        <button onclick="switchTab('dashboard')" class="nav-link sidebar-item active-nav flex items-center w-full p-3 rounded-lg transition text-gray-300"><i class="fas fa-chart-pie w-6"></i> Dashboard</button>
+        <button onclick="switchTab('clientes')" class="nav-link sidebar-item flex items-center w-full p-3 rounded-lg transition text-gray-300"><i class="fas fa-users w-6"></i> Préstamos</button>
+        <button onclick="switchTab('ganancias')" class="nav-link sidebar-item flex items-center w-full p-3 rounded-lg transition text-gray-300"><i class="fas fa-sack-dollar w-6"></i> Ganancias</button>
+        <button onclick="switchTab('reportes')" class="nav-link sidebar-item flex items-center w-full p-3 rounded-lg transition text-gray-300"><i class="fas fa-file-invoice-dollar w-6"></i> Reportes</button>
+      </nav>
+
+      <div class="p-4 border-t border-slate-700">
+        <button id="btn-logout" class="flex items-center gap-2 text-gray-400 hover:text-white transition w-full p-2">
+          <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+        </button>
+      </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col overflow-hidden">
+      <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8">
+        <h2 id="header-title" class="text-xl font-semibold text-gray-800">Dashboard General</h2>
+        <div class="flex items-center gap-3">
+          <div class="text-right">
+            <p id="user-display" class="text-sm font-bold text-gray-800 leading-none"></p>
+          </div>
+          <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold" id="user-initials"></div>
+        </div>
+      </header>
+
+      <section class="flex-1 overflow-y-auto p-8">
+
+        <!-- DASHBOARD -->
+        <div id="tab-dashboard" class="tab-content active">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-l-blue-500">
+              <p class="text-gray-400 text-xs font-bold uppercase">Capital en Cartera (Saldo)</p>
+              <h3 class="text-2xl font-black text-gray-800" id="stat-capital">$0.00</h3>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-l-green-500">
+              <p class="text-gray-400 text-xs font-bold uppercase">Préstamos Totales</p>
+              <h3 class="text-2xl font-black text-gray-800" id="stat-count">0</h3>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-l-emerald-500">
+              <p class="text-gray-400 text-xs font-bold uppercase">Ganancia (Interés + Mora)</p>
+              <h3 class="text-2xl font-black text-emerald-600" id="stat-profit">$0.00</h3>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-l-yellow-500">
+              <p class="text-gray-400 text-xs font-bold uppercase">Estado Cloud</p>
+              <h3 class="text-2xl font-black text-green-600" id="stat-status">Activo</h3>
+            </div>
+          </div>
+
+          <div class="bg-white p-6 rounded-2xl shadow-sm h-80">
+            <h4 class="font-bold text-gray-700 mb-4">Análisis de Cartera</h4>
+            <canvas id="loanChart"></canvas>
+          </div>
+        </div>
+
+        <!-- PRESTAMOS -->
+        <div id="tab-clientes" class="tab-content">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            <!-- LISTA + PAGOS -->
+            <div class="lg:col-span-2 space-y-6">
+
+              <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+                <table class="w-full text-left">
+                  <thead class="bg-gray-50 text-gray-500 text-[10px] uppercase font-bold">
+                    <tr>
+                      <th class="px-6 py-4">Cliente</th>
+                      <th class="px-6 py-4">Saldo Capital</th>
+                      <th class="px-6 py-4">Saldo Interés</th>
+                      <th class="px-6 py-4">Saldo Mora</th>
+                      <th class="px-6 py-4">Cuota Base</th>
+                      <th class="px-6 py-4 text-center">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="loans-table-body" class="divide-y divide-gray-100"></tbody>
+                </table>
+              </div>
+
+              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h4 class="font-bold text-gray-800 mb-4">Registrar Abono (Pago)</h4>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label class="text-[10px] font-bold text-gray-400 ml-1 uppercase">Préstamo</label>
+                    <select id="pay-loan" class="w-full p-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500"></select>
+                    <p class="text-[11px] text-gray-400 mt-1">
+                      Se aplica automático: Mora → Interés → Capital. Si pagó 2 meses tarde y paga 2 cuotas, avanza 2 meses.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label class="text-[10px] font-bold text-gray-400 ml-1 uppercase">Fecha del Pago</label>
+                    <input type="date" id="pay-date" class="w-full p-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+
+                  <div class="relative">
+                    <label class="text-[10px] font-bold text-gray-400 ml-1 uppercase">Monto del Abono</label>
+                    <span class="absolute left-3 top-10 text-gray-400">$</span>
+                    <input type="number" id="pay-amount" min="0" step="0.01"
+                      class="w-full p-3 pl-8 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="0.00">
+                  </div>
+
+                  <div class="flex items-end">
+                    <button id="btn-pay"
+                      class="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 transition shadow-lg flex items-center justify-center gap-2">
+                      <i class="fas fa-hand-holding-dollar"></i> Aplicar Abono
+                    </button>
+                  </div>
+                </div>
+
+                <div class="mt-4 p-4 bg-slate-800 rounded-xl text-white">
+                  <div class="text-xs opacity-80">Detalle de aplicación (preview)</div>
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2 text-sm">
+                    <div>Mora: <b id="prev-mora">$0.00</b></div>
+                    <div>Interés: <b id="prev-interes">$0.00</b></div>
+                    <div>Capital: <b id="prev-capital">$0.00</b></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CREAR PRESTAMO -->
+            <div class="bg-white p-6 rounded-2xl shadow-xl border border-gray-100">
+              <h4 class="font-bold text-gray-800 mb-4">Nuevo Préstamo</h4>
+
+              <div class="space-y-4">
+                <input type="text" id="nombre-cliente" placeholder="Nombre completo"
+                  class="w-full p-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+
+                <div class="relative">
+                  <span class="absolute left-3 top-3 text-gray-400">$</span>
+                  <input type="number" id="monto" placeholder="Monto Préstamo"
+                    class="w-full p-3 pl-8 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                  <div class="flex flex-col">
+                    <label class="text-[10px] font-bold text-gray-400 ml-1 uppercase">Plazo (Meses)</label>
+                    <input type="number" id="plazo" value="12" min="1"
+                      class="w-full p-3 bg-gray-50 border rounded-xl outline-none">
+                  </div>
+                  <div class="flex flex-col">
+                    <label class="text-[10px] font-bold text-gray-400 ml-1 uppercase">Interés Total % (Contrato)</label>
+                    <input type="number" id="tasa" value="10" step="1" min="0"
+                      class="w-full p-3 bg-gray-50 border rounded-xl outline-none">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                  <div class="flex flex-col">
+                    <label class="text-[10px] font-bold text-gray-400 ml-1 uppercase">Fecha de Inicio</label>
+                    <input type="date" id="fecha-inicio"
+                      class="w-full p-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+                  <div class="flex flex-col">
+                    <label class="text-[10px] font-bold text-gray-400 ml-1 uppercase">Mora Mensual % (Atraso)</label>
+                    <input type="number" id="moraRate" value="3" step="0.5" min="0"
+                      class="w-full p-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+                </div>
+
+                <div class="p-4 bg-slate-800 rounded-xl text-white text-center">
+                  <span class="text-xs opacity-75">Cuota Mensual (Base)</span>
+                  <div class="text-3xl font-black text-yellow-400" id="cuotaFinal">$0.00</div>
+                  <div class="text-[10px] mt-1 text-gray-300" id="infoCalculo">Interés simple (contrato) prorrateado.</div>
+                </div>
+
+                <button id="btn-save"
+                  class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg flex items-center justify-center gap-2">
+                  <i class="fas fa-plus-circle"></i> Crear Préstamo
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- GANANCIAS -->
+        <div id="tab-ganancias" class="tab-content">
+          <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div class="p-6 border-b border-gray-100 bg-emerald-50">
+              <h3 class="text-lg font-bold text-emerald-800">Control de Ganancias (Interés + Mora)</h3>
+              <p class="text-sm text-emerald-600">Ganancia = saldo interés del contrato + mora acumulada.</p>
+            </div>
+            <table class="w-full text-left">
+              <thead class="bg-gray-50 text-gray-500 text-[10px] uppercase font-bold">
+                <tr>
+                  <th class="px-6 py-4">Cliente</th>
+                  <th class="px-6 py-4">Capital Original</th>
+                  <th class="px-6 py-4">Interés (Saldo)</th>
+                  <th class="px-6 py-4">Mora (Saldo)</th>
+                  <th class="px-6 py-4 text-emerald-600">Ganancia Total (Saldo)</th>
+                </tr>
+              </thead>
+              <tbody id="profits-table-body" class="divide-y divide-gray-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- REPORTES -->
+        <div id="tab-reportes" class="tab-content">
+          <div class="bg-white rounded-2xl p-8 shadow-sm">
+            <h3 class="text-2xl font-bold mb-4">Resumen para Impresión</h3>
+            <div id="report-details" class="divide-y"></div>
+          </div>
+        </div>
+
+      </section>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import {
+      getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+      onAuthStateChanged, signOut
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import {
+      getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc,
+      serverTimestamp, query, orderBy, runTransaction, updateDoc
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCpb6oRKST7m8V8jh-MVfUSjfZMOLwKVgw",
+      authDomain: "prueba-c0a8d.firebaseapp.com",
+      databaseURL: "https://prueba-c0a8d-default-rtdb.firebaseio.com",
+      projectId: "prueba-c0a8d",
+      storageBucket: "prueba-c0a8d.firebasestorage.app",
+      messagingSenderId: "413791956077",
+      appId: "1:413791956077:web:bbcfeb5ce7a2282e332364"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const appId = "prueba-c0a8d";
+
+    const loansCol = () => collection(db, 'artifacts', appId, 'public', 'data', 'prestamos');
+    const paysCol  = () => collection(db, 'artifacts', appId, 'public', 'data', 'pagos');
+
+    let unsubscribeLoans = null;
+    let unsubscribePays  = null;
+    let loanChart = null;
+
+    let loans = [];
+    let payments = [];
+
+    // ✅ cuota base numérica (no del texto)
+    let cuotaCalculada = 0;
+
+    // ---------- Fechas ----------
+    const todayISO = () => new Date().toISOString().slice(0,10);
+    const parseISODate = (iso) => {
+      if (!iso) return null;
+      const [y,m,d] = iso.split('-').map(Number);
+      return new Date(y, m-1, d);
+    };
+    const toISO = (dt) => dt.toISOString().slice(0,10);
+    const addMonths = (dt, n) => {
+      const d = new Date(dt);
+      d.setMonth(d.getMonth() + n);
+      return d;
+    };
+
+    // Diferencia en meses calendario (para cuotas mensuales)
+    function monthsBetween(d1, d2) {
+      if (!d1 || !d2) return 0;
+      const a = new Date(d1.getFullYear(), d1.getMonth(), 1);
+      const b = new Date(d2.getFullYear(), d2.getMonth(), 1);
+      const m = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+      return Math.max(0, m);
+    }
+
+    function money(n) {
+      const x = Number(n || 0);
+      return '$' + x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // ---------- Mora automática (por días) ----------
+    // Regla: Si se pasa de la "proximaFechaPago", acumula mora sobre saldoCapital:
+    // mora = saldoCapital * (moraMensual%/100) * (dias/30)
+    function computeAccrual(loan, asOf = new Date()) {
+      const moraMensual = Number(loan.moraMensual || 0);
+      const saldoCapital = Number(loan.saldoCapital || 0);
+
+      const proxima = parseISODate(loan.proximaFechaPago);
+      const lastCalc = parseISODate(loan.lastMoraCalc) || proxima || parseISODate(loan.fechaInicio) || asOf;
+
+      if (!proxima || moraMensual <= 0 || saldoCapital <= 0) {
+        return { addMora: 0, newLastCalc: loan.lastMoraCalc || null };
+      }
+
+      // Si aún NO está vencido en asOf, no cobra mora
+      if (asOf <= proxima) return { addMora: 0, newLastCalc: loan.lastMoraCalc || null };
+
+      // Contar mora desde max(lastCalc, proxima)
+      const effectiveStart = (lastCalc < proxima) ? proxima : lastCalc;
+
+      const days = (asOf.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24);
+      if (days <= 0) return { addMora: 0, newLastCalc: loan.lastMoraCalc || null };
+
+      const rate = (moraMensual / 100);
+      const addMora = saldoCapital * rate * (days / 30);
+
+      return { addMora, newLastCalc: toISO(asOf) };
+    }
+
+    async function maybePersistAccrual(loanId, loanData) {
+      const { addMora, newLastCalc } = computeAccrual(loanData, new Date());
+      if (addMora <= 0) return;
+
+      const loanRef = doc(db, 'artifacts', appId, 'public', 'data', 'prestamos', loanId);
+      const nuevoSaldoMora = Number(loanData.saldoMora || 0) + addMora;
+
+      try {
+        await updateDoc(loanRef, {
+          saldoMora: Math.round(nuevoSaldoMora * 100) / 100,
+          lastMoraCalc: newLastCalc
+        });
+      } catch (e) {
+        console.warn("No se pudo persistir mora:", e.message);
+      }
+    }
+
+    // ---------- Aplicación de pago ----------
+    // Regla: Mora -> Interés -> Capital
+    function applyPaymentPreview(loan, amount) {
+      let restante = Math.max(0, Number(amount || 0));
+
+      const mora = Math.max(0, Number(loan.saldoMora || 0));
+      const interes = Math.max(0, Number(loan.saldoInteresContrato || 0));
+      const capital = Math.max(0, Number(loan.saldoCapital || 0));
+
+      const payMora = Math.min(restante, mora); restante -= payMora;
+      const payInteres = Math.min(restante, interes); restante -= payInteres;
+      const payCapital = Math.min(restante, capital); restante -= payCapital;
+
+      return { payMora, payInteres, payCapital, leftover: restante };
+    }
+
+    // ---------- Auth ----------
+    onAuthStateChanged(auth, (user) => {
+      document.getElementById('loading-overlay').classList.add('hidden');
+
+      if (user) {
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('app-content').classList.remove('hidden');
+        document.getElementById('user-display').innerText = user.email;
+        document.getElementById('user-initials').innerText = user.email[0].toUpperCase();
+
+        document.getElementById('fecha-inicio').value = todayISO();
+        document.getElementById('pay-date').value = todayISO();
+
+        startListening();
+        calculateCuota();
+      } else {
+        document.getElementById('login-screen').classList.remove('hidden');
+        document.getElementById('app-content').classList.add('hidden');
+        if (unsubscribeLoans) unsubscribeLoans();
+        if (unsubscribePays) unsubscribePays();
+      }
+    });
+
+    function startListening() {
+      const qLoans = query(loansCol(), orderBy("timestamp", "desc"));
+      const qPays  = query(paysCol(), orderBy("timestamp", "desc"));
+
+      unsubscribeLoans = onSnapshot(qLoans, async (snap) => {
+        loans = [];
+        for (const d of snap.docs) {
+          const data = d.data();
+          loans.push({ id: d.id, ...data });
+
+          // ✅ mora automática persistida
+          await maybePersistAccrual(d.id, data);
+        }
+        renderAll();
+      });
+
+      unsubscribePays = onSnapshot(qPays, (snap) => {
+        payments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderAll();
+      });
+    }
+
+    // ---------- Render ----------
+    function renderAll() {
+      renderLoansTable();
+      renderProfits();
+      renderReport();
+      renderStatsAndChart();
+      renderPaySelect();
+      refreshPayPreview();
+    }
+
+    function renderLoansTable() {
+      const tbody = document.getElementById('loans-table-body');
+      tbody.innerHTML = "";
+
+      loans.forEach(l => {
+        const saldoCapital = Number(l.saldoCapital || 0);
+        const saldoInteres = Number(l.saldoInteresContrato || 0);
+        const saldoMora = Number(l.saldoMora || 0);
+        const cuotaBase = Number(l.cuotaBase || 0);
+
+        tbody.innerHTML += `
+          <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4 font-bold text-slate-700">${l.cliente || '-'}</td>
+            <td class="px-6 py-4 text-gray-600">${money(saldoCapital)}</td>
+            <td class="px-6 py-4 text-gray-600">${money(saldoInteres)}</td>
+            <td class="px-6 py-4 font-bold ${saldoMora > 0 ? 'text-rose-600' : 'text-gray-600'}">${money(saldoMora)}</td>
+            <td class="px-6 py-4 text-blue-700 font-black">${money(cuotaBase)}</td>
+            <td class="px-6 py-4 text-center">
+              <button onclick="window.delLoan('${l.id}')" class="text-red-400 hover:text-red-600 p-2" title="Eliminar préstamo">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function renderProfits() {
+      const profitBody = document.getElementById('profits-table-body');
+      profitBody.innerHTML = "";
+
+      loans.forEach(l => {
+        const capitalOriginal = Number(l.monto || 0);
+        const interesSaldo = Number(l.saldoInteresContrato || 0);
+        const moraSaldo = Number(l.saldoMora || 0);
+        const gananciaTotalSaldo = interesSaldo + moraSaldo;
+
+        profitBody.innerHTML += `
+          <tr class="hover:bg-emerald-50/30">
+            <td class="px-6 py-4 font-bold text-slate-700">${l.cliente || '-'}</td>
+            <td class="px-6 py-4 text-gray-500">${money(capitalOriginal)}</td>
+            <td class="px-6 py-4 text-gray-500">${money(interesSaldo)}</td>
+            <td class="px-6 py-4 ${moraSaldo > 0 ? 'text-rose-600 font-bold' : 'text-gray-500'}">${money(moraSaldo)}</td>
+            <td class="px-6 py-4 font-black text-emerald-700">${money(gananciaTotalSaldo)}</td>
+          </tr>
+        `;
+      });
+    }
+
+    function renderReport() {
+      const report = document.getElementById('report-details');
+      report.innerHTML = "";
+
+      loans.forEach(l => {
+        const saldoCapital = Number(l.saldoCapital || 0);
+        const saldoInteres = Number(l.saldoInteresContrato || 0);
+        const saldoMora = Number(l.saldoMora || 0);
+        report.innerHTML += `
+          <div class="py-4 flex flex-col md:flex-row md:justify-between gap-2">
+            <span class="font-semibold text-slate-700">${l.cliente || '-'}</span>
+            <b class="text-slate-700">
+              Capital: ${money(saldoCapital)} | Interés: ${money(saldoInteres)} | Mora: ${money(saldoMora)}
+            </b>
+          </div>
+        `;
+      });
+    }
+
+    function renderStatsAndChart() {
+      let totalSaldoCapital = 0;
+      let totalGananciaSaldo = 0;
+
+      const labels = [];
+      const capitalData = [];
+      const profitData = [];
+
+      loans.forEach(l => {
+        const saldoCapital = Number(l.saldoCapital || 0);
+        const interesSaldo = Number(l.saldoInteresContrato || 0);
+        const moraSaldo = Number(l.saldoMora || 0);
+
+        totalSaldoCapital += saldoCapital;
+        totalGananciaSaldo += (interesSaldo + moraSaldo);
+
+        labels.push(l.cliente || 'Cliente');
+        capitalData.push(saldoCapital);
+        profitData.push(interesSaldo + moraSaldo);
+      });
+
+      document.getElementById('stat-capital').innerText = money(totalSaldoCapital);
+      document.getElementById('stat-profit').innerText = money(totalGananciaSaldo);
+      document.getElementById('stat-count').innerText = loans.length;
+
+      updateChart(labels, capitalData, profitData);
+    }
+
+    function renderPaySelect() {
+      const sel = document.getElementById('pay-loan');
+      const current = sel.value;
+      sel.innerHTML = "";
+
+      sel.innerHTML += `<option value="">-- Selecciona un préstamo --</option>`;
+      loans.forEach(l => {
+        const saldoTotal = Number(l.saldoCapital||0) + Number(l.saldoInteresContrato||0) + Number(l.saldoMora||0);
+        sel.innerHTML += `<option value="${l.id}">${l.cliente || 'Cliente'} (Saldo: ${money(saldoTotal)})</option>`;
+      });
+
+      if (current && loans.some(x => x.id === current)) sel.value = current;
+    }
+
+    function refreshPayPreview() {
+      const loanId = document.getElementById('pay-loan').value;
+      const amt = parseFloat(document.getElementById('pay-amount').value) || 0;
+
+      const prevM = document.getElementById('prev-mora');
+      const prevI = document.getElementById('prev-interes');
+      const prevC = document.getElementById('prev-capital');
+
+      const loan = loans.find(x => x.id === loanId);
+      if (!loan || amt <= 0) {
+        prevM.textContent = '$0.00';
+        prevI.textContent = '$0.00';
+        prevC.textContent = '$0.00';
+        return;
+      }
+
+      const p = applyPaymentPreview(loan, amt);
+      prevM.textContent = money(p.payMora);
+      prevI.textContent = money(p.payInteres);
+      prevC.textContent = money(p.payCapital);
+    }
+
+    // ---------- Crear préstamo ----------
+    document.getElementById('btn-save').onclick = async () => {
+      const btn = document.getElementById('btn-save');
+
+      const nombre = document.getElementById('nombre-cliente').value.trim();
+      const monto = parseFloat(document.getElementById('monto').value);
+      const plazo = parseInt(document.getElementById('plazo').value);
+      const tasaTotal = parseFloat(document.getElementById('tasa').value);
+      const fechaInicio = document.getElementById('fecha-inicio').value || todayISO();
+      const moraMensual = parseFloat(document.getElementById('moraRate').value) || 0;
+
+      const cuotaBase = cuotaCalculada;
+
+      if (!nombre || isNaN(monto) || isNaN(plazo) || isNaN(tasaTotal) || !isFinite(cuotaBase) || cuotaBase <= 0) {
+        return alert("Por favor llena todos los campos correctamente.");
+      }
+
+      try {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner animate-spin"></i> Guardando...';
+
+        const interesContratoTotal = monto * (tasaTotal / 100);
+
+        const saldoCapital = monto;
+        const saldoInteresContrato = interesContratoTotal;
+        const saldoMora = 0;
+
+        const startDt = parseISODate(fechaInicio);
+        const proximaFechaPago = toISO(addMonths(startDt, 1));
+
+        await addDoc(loansCol(), {
+          cliente: nombre,
+          monto: monto,
+          plazo: plazo,
+          tasaTotal: tasaTotal,
+
+          cuotaBase: Math.round(cuotaBase * 100) / 100,
+
+          fechaInicio: fechaInicio,
+          proximaFechaPago: proximaFechaPago,
+          moraMensual: moraMensual,
+          lastMoraCalc: fechaInicio,
+
+          saldoCapital: Math.round(saldoCapital * 100) / 100,
+          saldoInteresContrato: Math.round(saldoInteresContrato * 100) / 100,
+          saldoMora: Math.round(saldoMora * 100) / 100,
+
+          timestamp: serverTimestamp()
+        });
+
+        document.getElementById('nombre-cliente').value = "";
+        document.getElementById('monto').value = "";
+        document.getElementById('tasa').value = "10";
+        document.getElementById('plazo').value = "12";
+        document.getElementById('moraRate').value = "3";
+        document.getElementById('fecha-inicio').value = todayISO();
+        calculateCuota();
+
+        alert("Préstamo guardado con éxito.");
+      } catch (e) {
+        alert("Error al guardar: " + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-plus-circle"></i> Crear Préstamo';
+      }
+    };
+
+    // ---------- Aplicar abono (pago) ----------
+    // ✅ Calcula mora hasta la FECHA DEL PAGO.
+    // ✅ Aplica: Mora -> Interés -> Capital.
+    // ✅ Si pagó 2 meses tarde y paga 2 cuotas, avanza 2 meses.
+    document.getElementById('btn-pay').onclick = async () => {
+      const btn = document.getElementById('btn-pay');
+
+      const loanId = document.getElementById('pay-loan').value;
+      const payDateISO = document.getElementById('pay-date').value || todayISO();
+      const amount = parseFloat(document.getElementById('pay-amount').value);
+
+      if (!loanId) return alert("Selecciona un préstamo.");
+      if (!amount || amount <= 0) return alert("Ingresa un monto válido.");
+
+      const loanRefs = doc(db, 'artifacts', appId, 'public', 'data', 'prestamos', loanId);
+      const paysRef = paysCol();
+
+      try {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner animate-spin"></i> Aplicando...';
+
+        await runTransaction(db, async (tx) => {
+          const snap = await tx.get(loanRefs);
+          if (!snap.exists()) throw new Error("El préstamo no existe.");
+
+          const loan = snap.data();
+          const payDate = parseISODate(payDateISO) || new Date();
+
+          // 1) Mora hasta la fecha real del pago
+          const { addMora, newLastCalc } = computeAccrual(loan, payDate);
+
+          let saldoMora = Number(loan.saldoMora || 0) + (addMora || 0);
+          let saldoInteres = Number(loan.saldoInteresContrato || 0);
+          let saldoCapital = Number(loan.saldoCapital || 0);
+
+          // 2) Aplicar pago: Mora -> Interés -> Capital
+          let restante = amount;
+
+          const payMora = Math.min(restante, saldoMora); saldoMora -= payMora; restante -= payMora;
+          const payInteres = Math.min(restante, saldoInteres); saldoInteres -= payInteres; restante -= payInteres;
+          const payCapital = Math.min(restante, saldoCapital); saldoCapital -= payCapital; restante -= payCapital;
+
+          const totalAplicado = payMora + payInteres + payCapital;
+
+          // 3) Cuántas cuotas estaban vencidas para esa fecha
+          const cuotaBase = Number(loan.cuotaBase || 0);
+          const proxima = parseISODate(loan.proximaFechaPago);
+
+          let cuotasVencidas = 0;
+          if (proxima && payDate >= proxima) {
+            cuotasVencidas = monthsBetween(proxima, payDate) + 1;
+          }
+
+          // 4) Cuántas cuotas cubrió este pago (sin contar mora)
+          let cuotasCubiertas = 0;
+          if (cuotaBase > 0) {
+            const pagoParaCuotas = Math.max(0, (totalAplicado - payMora)); // excluye mora
+            cuotasCubiertas = Math.floor(pagoParaCuotas / cuotaBase);
+          }
+
+          // 5) Avanzar la próxima fecha: avanza lo que cubrió (máximo lo vencido; no prepagos extra)
+          let mesesAAvanzar = 0;
+          if (cuotasVencidas > 0) mesesAAvanzar = Math.min(cuotasCubiertas, cuotasVencidas);
+          else mesesAAvanzar = Math.max(0, cuotasCubiertas);
+
+          let proximaFechaPago = loan.proximaFechaPago;
+          if (proxima && mesesAAvanzar > 0) {
+            proximaFechaPago = toISO(addMonths(proxima, mesesAAvanzar));
+          }
+
+          // 6) Actualizar préstamo
+          tx.update(loanRefs, {
+            saldoMora: Math.round(saldoMora * 100) / 100,
+            saldoInteresContrato: Math.round(saldoInteres * 100) / 100,
+            saldoCapital: Math.round(saldoCapital * 100) / 100,
+            lastMoraCalc: newLastCalc || loan.lastMoraCalc || loan.fechaInicio,
+            proximaFechaPago: proximaFechaPago
+          });
+
+          // 7) Registrar pago
+          tx.set(doc(paysRef), {
+            loanId,
+            payDate: payDateISO,
+            amount: Math.round(amount * 100) / 100,
+            aplicadoMora: Math.round(payMora * 100) / 100,
+            aplicadoInteres: Math.round(payInteres * 100) / 100,
+            aplicadoCapital: Math.round(payCapital * 100) / 100,
+            cuotasVencidas,
+            cuotasCubiertas,
+            mesesAvanzados: mesesAAvanzar,
+            timestamp: serverTimestamp()
+          });
+        });
+
+        document.getElementById('pay-amount').value = "";
+        refreshPayPreview();
+        alert("Pago aplicado correctamente.");
+      } catch (e) {
+        alert("Error al aplicar pago: " + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-hand-holding-dollar"></i> Aplicar Abono';
+      }
+    };
+
+    // ---------- Eliminar préstamo ----------
+    window.delLoan = async (id) => {
+      if (confirm("¿Seguro que quieres borrar este préstamo?")) {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'prestamos', id));
+      }
+    };
+
+    // ---------- Login / Register / Logout ----------
+    document.getElementById('btn-login').onclick = async () => {
+      const email = document.getElementById('login-email').value;
+      const pass = document.getElementById('login-password').value;
+      try { await signInWithEmailAndPassword(auth, email, pass); }
+      catch (e) { alert("Error: " + e.message); }
+    };
+    document.getElementById('btn-register-ui').onclick = async () => {
+      const email = document.getElementById('login-email').value;
+      const pass = document.getElementById('login-password').value;
+      try { await createUserWithEmailAndPassword(auth, email, pass); alert("Administrador registrado correctamente."); }
+      catch (e) { alert(e.message); }
+    };
+    document.getElementById('btn-logout').onclick = () => signOut(auth);
+
+    // ---------- Navegación ----------
+    window.switchTab = (tabId) => {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active-nav'));
+      document.getElementById('tab-' + tabId).classList.add('active');
+      event.currentTarget.classList.add('active-nav');
+      document.getElementById('header-title').innerText = tabId.charAt(0).toUpperCase() + tabId.slice(1);
+    };
+
+    // ---------- Cuota base ----------
+    function calculateCuota() {
+      const m = parseFloat(document.getElementById('monto').value) || 0;
+      const p = parseInt(document.getElementById('plazo').value) || 1;
+      const t = (parseFloat(document.getElementById('tasa').value) || 0) / 100;
+
+      if (m > 0) {
+        const interesContratoTotal = m * t;
+        const totalARecuperar = m + interesContratoTotal;
+        const cuotaBase = totalARecuperar / p;
+
+        cuotaCalculada = cuotaBase;
+
+        document.getElementById('cuotaFinal').innerText =
+          '$' + cuotaBase.toLocaleString(undefined, { minimumFractionDigits: 2 });
+
+        document.getElementById('infoCalculo').innerText =
+          `Interés contrato total: $${interesContratoTotal.toFixed(2)} (${(t*100).toFixed(0)}%)`;
+      } else {
+        cuotaCalculada = 0;
+        document.getElementById('cuotaFinal').innerText = "$0.00";
+      }
+    }
+
+    ['monto', 'plazo', 'tasa'].forEach(id =>
+      document.getElementById(id).addEventListener('input', calculateCuota)
+    );
+
+    ['pay-loan', 'pay-amount'].forEach(id =>
+      document.getElementById(id).addEventListener('input', refreshPayPreview)
+    );
+
+    // ---------- Chart ----------
+    function updateChart(labels, capitalData, profitData) {
+      const ctx = document.getElementById('loanChart').getContext('2d');
+      if (loanChart) loanChart.destroy();
+      loanChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Saldo Capital ($)', data: capitalData, backgroundColor: '#3b82f6', borderRadius: 5 },
+            { label: 'Ganancia (Interés+Mora) ($)', data: profitData, backgroundColor: '#10b981', borderRadius: 5 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { x: { stacked: true }, y: { stacked: true } }
+        }
+      });
+    }
+  </script>
+
+</body>
+</html>
